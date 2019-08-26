@@ -22,7 +22,8 @@ defmodule Gem do
 
     # We can explicitely ask for no registration
     mutex_opts =
-      if false === Keyword.fetch(opts, :register) do
+      if false === Keyword.get(opts, :register) do
+        IO.warn("not registering #{mutex_opts[:name]}")
         Keyword.drop(mutex_opts, [:name])
       else
         mutex_opts
@@ -133,6 +134,7 @@ defmodule Gem do
     with {:ok, entities_map} <- load_entities(entity_keys, repo),
          {:ok, {reply, changes_and_events}} <- Command.run(command, entities_map),
          {:ok, events} <- write_changes(changes_and_events, repo),
+         IO.inspect(events, label: :events),
          :ok <- dispatch_events(events, gem, disp) do
       # If everything is fine, just return the command reply
       reply
@@ -169,7 +171,8 @@ defmodule Gem do
 
     case result do
       :ok -> {:ok, other_evts}
-      {:ok, events} -> {:ok, other_evts ++ events}
+      {:ok, events} when is_list(events) -> {:ok, other_evts ++ events}
+      {:ok, events} -> raise "Events must be a list, got: #{inspect(events)}"
       {:error, _} = err -> err
     end
   end
@@ -180,14 +183,16 @@ defmodule Gem do
   defp is_write_event(_),
     do: false
 
-  defp dispatch_events(events, gem, nil),
-    do: :ok
+  defp dispatch_events(events, gem, nil) do
+    Logger.warn("Ignored events: #{inspect(events)}")
+    :ok
+  end
 
-  defp dispatch_events(events, gem, mod) do
+  defp dispatch_events(events, gem, {mod, arg} = disp) do
     events
-    |> Enum.map(&mod.transform_event/1)
+    |> Enum.map(&mod.transform_event(&1, arg))
     |> :lists.flatten()
-    |> Enum.each(&send_event(&1, gem, mod))
+    |> Enum.each(&send_event(&1, gem, disp))
   end
 
   # ignoring transformed events as nil or :ok as it is mostly the
@@ -199,19 +204,19 @@ defmodule Gem do
   defp send_event(:ok, _, _),
     do: :ok
 
-  defp send_event({:external, module, fun, args}, _, _),
+  defp send_event({:external, module, fun, args}, _gem, _disp),
     do: apply(module, fun, args)
 
-  defp send_event({:run_command, %_mod{} = command}, gem, mod),
-    do: send_event({:run_command, 0, command}, gem, mod)
+  defp send_event({:run_command, %_mod{} = command}, gem, _disp),
+    do: send_event({:run_command, 0, command}, gem, _disp)
 
-  defp send_event({:run_command, timeout, %_mod{} = command}, gem, mod) do
+  defp send_event({:run_command, timeout, %_mod{} = command}, gem, _disp) do
     timer_args = [timeout, Gem, :run, [gem, command]]
 
-    send_event({:external, :timer, :apply_after, timer_args}, gem, mod)
+    send_event({:external, :timer, :apply_after, timer_args}, gem, _disp)
   end
 
-  defp send_event(event, _, _) do
-    Logger.warn("@todo dispatch event: #{inspect(event)}")
+  defp send_event(event, gem, {mod, arg}) do
+    mod.dispatch(event, gem, arg)
   end
 end

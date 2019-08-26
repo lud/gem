@@ -23,6 +23,8 @@ defmodule Gem.Command do
     end
   end
 
+  @todo "validate that all keys are 2-tupes {atom, any}"
+
   def list_keys(command) do
     %mod{} = command
     spec = mod.key_spec(command)

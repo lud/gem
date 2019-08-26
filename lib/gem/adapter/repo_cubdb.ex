@@ -1,4 +1,5 @@
 defmodule Gem.Adapter.Repository.CubDB do
+  @behaviour Gem.Repository
   def load_entities(keys, cub) do
     case CubDB.get_multi(cub, keys, :NOT_FOUND) do
       list when is_list(list) -> {:ok, list}
@@ -15,19 +16,19 @@ defmodule Gem.Adapter.Repository.CubDB do
     # We use get_and_update_multi with no selection, so we are called
     # with an empty map, but we return data to put and keys to delete
     CubDB.get_and_update_multi(cub, [], fn %{} ->
-      {{:ok, events}, puts, delete_keys}
+      {events, puts, delete_keys}
     end)
   end
 
-  defp change_to_event({:update, {k, v}}),
-    do: {:updated, {k, v}}
+  defp change_to_event({:update, {{type, _} = k, v}}),
+    do: {{:updated, type}, {k, v}}
 
   # CubDB has no concept of insert so we return an :updated event
-  defp change_to_event({:insert, {k, v}}),
-    do: {:inserted, {k, v}}
+  defp change_to_event({:insert, {{type, _} = k, v}}),
+    do: {{:inserted, type}, {k, v}}
 
-  defp change_to_event({:delete, {k, v}}),
-    do: {:deleted, {k, v}}
+  defp change_to_event({:delete, {{type, _} = k, v}}),
+    do: {{:deleted, type}, {k, v}}
 
   defp extract_puts([{:update, kv} | rest], acc),
     do: extract_puts(rest, [kv | acc])

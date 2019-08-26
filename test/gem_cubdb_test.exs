@@ -3,17 +3,17 @@ defmodule Gem.CubDBTest do
   doctest Gem
 
   @db1_dir "test/db/cub1"
-  @db1_name Module.concat(__MODULE__, DB1)
+  @db1_name Module.concat(__MODULE__, Repo1)
+  @dispatcher1_name Module.concat(__MODULE__, Dispatcher1)
 
-  setup do
+  setup_all do
     File.mkdir_p!(@db1_dir)
 
-    if nil === Process.whereis(@db1_name) do
-      db_opts = [auto_compact: true, auto_file_sync: false]
-      gen_opts = [name: @db1_name]
-      {:ok, _db} = CubDB.start_link(@db1_dir, db_opts, gen_opts)
-    end
+    db_opts = [auto_compact: true, auto_file_sync: false]
+    gen_opts = [name: @db1_name]
+    {:ok, _db} = CubDB.start_link(@db1_dir, db_opts, gen_opts)
 
+    Gem.Adapter.EventDispatcher.Registry.start_link(@dispatcher1_name)
     :ok
   end
 
@@ -53,12 +53,25 @@ defmodule Gem.CubDBTest do
     assert {:ok, gem} =
              Gem.start_link(
                name: MyGem,
-               repository: {Gem.Adapter.Repository.CubDB, @db1_name}
+               register: false,
+               repository: {Gem.Adapter.Repository.CubDB, @db1_name},
+               dispatcher: {Gem.Adapter.EventDispatcher.Registry, @dispatcher1_name}
              )
+
+    # register is set to false
+    assert nil === Process.whereis(MyGem)
+
+    event = {:inserted, :person}
+    # We register self as a listener for the event
+    Gem.Adapter.EventDispatcher.Registry.subscribe(@dispatcher1_name, gem, event, :HELLO)
 
     assert {:ok, :NOT_FOUND} = Gem.fetch_entity(gem, {:person, "Alice"})
     alice = %{name: "Alice", age: 22}
     assert :ok = Gem.run(gem, Command.CreatePerson.new(alice))
+
+    # We should receive the event
+    assert_receive {^event, {{:person, "Alice"}, ^alice}, :HELLO}
+
     assert {:ok, alice} === Gem.fetch_entity(gem, {:person, "Alice"})
   end
 end
