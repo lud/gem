@@ -1,0 +1,4 @@
+%{
+  "cubdb": {:hex, :cubdb, "0.12.0", "7bd5c1b8038f5ecf2c523bf41b7ec632998e91b45dd4a969caf5358297d126bb", [:mix], [], "hexpm"},
+  "mutex": {:hex, :mutex, "1.1.2", "db5de0d889d1f7f76d3c040cd9db908fa69055af3d3ffa57472fb03863db9ea3", [:mix], [], "hexpm"},
+}
