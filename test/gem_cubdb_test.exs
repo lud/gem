@@ -11,9 +11,9 @@ defmodule Gem.CubDBTest do
 
     db_opts = [auto_compact: true, auto_file_sync: false]
     gen_opts = [name: @db1_name]
-    {:ok, _db} = CubDB.start_link(@db1_dir, db_opts, gen_opts)
+    {:ok, _} = CubDB.start_link(@db1_dir, db_opts, gen_opts)
 
-    Gem.Adapter.EventDispatcher.Registry.start_link(@dispatcher1_name)
+    {:ok, _} = Gem.Adapter.EventDispatcher.Registry.start_link(@dispatcher1_name)
     :ok
   end
 
