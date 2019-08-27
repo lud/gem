@@ -14,6 +14,7 @@ defmodule Gem.Adapter.Repository.CubDB do
   @todo "handle timeout"
 
   def write_changes(cub, changes) do
+    changes = Enum.map(changes, &set_entity_key/1)
     events = Enum.map(changes, &change_to_event/1)
     puts = extract_puts(changes, [])
     delete_keys = extract_delete_keys(changes, [])
@@ -22,6 +23,27 @@ defmodule Gem.Adapter.Repository.CubDB do
     CubDB.get_and_update_multi(cub, [], fn %{} ->
       {events, puts, delete_keys}
     end)
+  end
+
+  defguard is_change(atom) when atom in [:update, :delete, :insert]
+
+  # If the entity to persist is already a {key, value} with a {type,
+  # id} key, we have nothing to do
+  def set_entity_key({change, {{type, _} = key, entity}})
+      when is_change(change) and is_atom(type),
+      do: {key, entity}
+
+  # But if the entity is a struct we fetch the key from the entity
+  # module
+  def set_entity_key({change, %mod{} = entity}) when is_change(change) do
+    case mod.primary_key!(entity) do
+      nil ->
+        raise "A primary key cannot be nil"
+
+      pk ->
+        key = {mod, pk}
+        {change, {key, entity}}
+    end
   end
 
   defp change_to_event({:update, {{type, _} = k, v}}),

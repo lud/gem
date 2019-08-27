@@ -14,12 +14,24 @@ defmodule Gem.Adapter.EventDispatcher.Registry do
   module, but we can override the transform_event function.
   """
 
+  def child_spec(name) do
+    name
+    |> start_opts()
+    |> Registry.child_spec()
+  end
+
   def start_link(name) do
-    Registry.start_link(
+    name
+    |> start_opts()
+    |> Registry.start_link()
+  end
+
+  defp start_opts(name) do
+    [
       keys: :duplicate,
       name: name,
       partitions: System.schedulers_online()
-    )
+    ]
   end
 
   def transform_event(x, _),

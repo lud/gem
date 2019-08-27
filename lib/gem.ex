@@ -7,6 +7,14 @@ defmodule Gem do
   alias Gem.Command.Fetch
   require Logger
 
+  def child_spec(opts) do
+    %{
+      id: Keyword.get(opts, :name, __MODULE__),
+      start: {__MODULE__, :start_link, [opts]},
+      type: :worker
+    }
+  end
+
   def start_link(opts) when is_list(opts) do
     opts =
       opts
