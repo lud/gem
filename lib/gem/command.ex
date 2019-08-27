@@ -1,14 +1,18 @@
 defmodule Gem.Command do
+  @moduledoc """
+  This module describes the behaviour for a Gem command.
+  """
+
   # key_spec must return a data structure for {entity_module, id}
   # tuples. It can be a single tuple, a list of tuples, a map of any
   # => tuple, or other combinations of lists/maps
 
-  @callback key_spec(command :: map) :: {Atom.t(), any} | %{} | list
-  @callback check(command :: map, entities :: {Atom.t(), any} | %{} | list) :: :ok | {:error, any}
-  @callback run(command :: map, entities :: {Atom.t(), any} | %{} | list) ::
+  @callback key_spec(command :: map) :: {atom(), any} | %{} | list
+  @callback check(command :: map, entities :: {atom(), any} | %{} | list) :: :ok | {:error, any}
+  @callback run(command :: map, entities :: {atom(), any} | %{} | list) ::
               :ok
-              | {:ok, changes_and_events :: List.t()}
-              | {:ok, reply :: any(), changes_and_events :: List.t()}
+              | {:ok, changes_and_events :: list()}
+              | {:ok, reply :: any(), changes_and_events :: list(tuple())}
               | {:error, any()}
 
   defmacro __using__(_) do
@@ -25,11 +29,15 @@ defmodule Gem.Command do
 
   @todo "validate that all keys are 2-tupes {atom, any}"
 
+  @spec list_keys(map()) :: [{atom, any}]
   def list_keys(command) do
     %mod{} = command
     spec = mod.key_spec(command)
     flatten_keys_spec(spec, [])
   end
+
+  defp flatten_keys_spec(nil, acc),
+    do: acc
 
   defp flatten_keys_spec({type, id}, acc),
     do: [{type, id} | acc]

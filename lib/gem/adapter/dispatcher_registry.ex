@@ -1,5 +1,13 @@
 defmodule Gem.Adapter.EventDispatcher.Registry do
+  @moduledoc """
+  This module implements a simple pub-sub mechanism on top of the
+  standard Elixir registry module.
+
+  Each subscriber receive events as `{gem :: atom(), key :: any(), event :: any()}`
+  """
   @behaviour Gem.EventDispatcher
+
+  require Logger
 
   @todo """
   define __using__ so we copy all the dispatch code into the using
@@ -17,18 +25,22 @@ defmodule Gem.Adapter.EventDispatcher.Registry do
   def transform_event(x, _),
     do: x
 
-  def dispatch({key, event}, gem, name) do
-    IO.puts("dispatching to #{inspect(key)}")
+  def dispatch(registry, gem, {topic, data}) do
+    IO.puts("dispatching to #{inspect(topic)}")
 
-    Registry.dispatch(name, key, fn entries ->
-      for {pid, private} <- entries do
-        send(pid, {key, event, private})
+    Registry.dispatch(registry, topic, fn entries ->
+      for {pid, ^gem} <- entries do
+        send(pid, {gem, topic, data})
       end
     end)
   end
 
-  def subscribe(name, gem, key, private \\ []) do
-    IO.puts("subscribed to #{inspect(key)}")
-    Registry.register(name, key, private)
+  def subscribe(registry, topic, gem) when is_atom(gem) do
+    IO.puts("subscribed to #{inspect(topic)}")
+
+    case Registry.register(registry, topic, gem) do
+      {:ok, _} -> :ok
+      error -> error
+    end
   end
 end

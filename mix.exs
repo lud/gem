@@ -20,7 +20,9 @@ defmodule Gem.MixProject do
   defp deps do
     [
       {:mutex, "~> 1.1.2"},
-      {:cubdb, "~> 0.12.0", only: [:test]}
+      {:cubdb, "~> 0.12.0", only: [:test, :dev]},
+      {:dialyxir, "~> 1.0.0-rc.6", only: [:test, :dev], runtime: false},
+      {:credo, "~> 1.1.0", only: [:dev, :test], runtime: false}
     ]
   end
 end

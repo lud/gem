@@ -1,5 +1,10 @@
 defmodule Gem do
+  @moduledoc """
+  This module is the main interface to Gem. It allows to start a Gem
+  and run commands.
+  """
   alias Gem.Command
+  alias Gem.Command.Fetch
   require Logger
 
   def start_link(opts) when is_list(opts) do
@@ -90,7 +95,7 @@ defmodule Gem do
   # We use the fetch command only to get the keys and return the
   # entities. The mutex is not used so the entity(ies) can be outdated
   def fetch_entity(gem, key_spec) do
-    dummy = Gem.Command.Fetch.new(key_spec)
+    dummy = Fetch.new(key_spec)
     entity_keys = Command.list_keys(dummy)
     %{repository: repo} = Mutex.get_meta(gem)
 
@@ -134,7 +139,6 @@ defmodule Gem do
     with {:ok, entities_map} <- load_entities(entity_keys, repo),
          {:ok, {reply, changes_and_events}} <- Command.run(command, entities_map),
          {:ok, events} <- write_changes(changes_and_events, repo),
-         IO.inspect(events, label: :events),
          :ok <- dispatch_events(events, gem, disp) do
       # If everything is fine, just return the command reply
       reply
@@ -146,7 +150,7 @@ defmodule Gem do
   end
 
   defp load_entities(keylist, {mod, arg}) do
-    with {:ok, entities} <- mod.load_entities(keylist, arg) do
+    with {:ok, entities} <- mod.load_entities(arg, keylist) do
       map =
         Enum.zip(keylist, entities)
         |> Map.new()
@@ -167,9 +171,7 @@ defmodule Gem do
       changes_and_events
       |> Enum.split_with(&is_write_event/1)
 
-    result = mod.write_changes(writes_evts, arg)
-
-    case result do
+    case mod.write_changes(arg, writes_evts) do
       :ok -> {:ok, other_evts}
       {:ok, events} when is_list(events) -> {:ok, other_evts ++ events}
       {:ok, events} -> raise "Events must be a list, got: #{inspect(events)}"
@@ -217,6 +219,6 @@ defmodule Gem do
   end
 
   defp send_event(event, gem, {mod, arg}) do
-    mod.dispatch(event, gem, arg)
+    mod.dispatch(arg, gem, event)
   end
 end

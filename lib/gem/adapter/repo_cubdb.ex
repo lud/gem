@@ -1,15 +1,19 @@
 defmodule Gem.Adapter.Repository.CubDB do
+  @moduledoc """
+  This module implements a simple adapter for CubDB.
+
+  Entities are stored with `{type :: atom(), id :: any()}` as keys.
+
+  Persistence events are emitted as `{{event :: atom(), type :: atom()}, {k, v}}`
+  """
   @behaviour Gem.Repository
-  def load_entities(keys, cub) do
-    case CubDB.get_multi(cub, keys, :NOT_FOUND) do
-      list when is_list(list) -> {:ok, list}
-      other -> {:error, {:no_reason, other}}
-    end
+  def load_entities(cub, keys) do
+    {:ok, CubDB.get_multi(cub, keys, :NOT_FOUND)}
   end
 
   @todo "handle timeout"
 
-  def write_changes(changes, cub) do
+  def write_changes(cub, changes) do
     events = Enum.map(changes, &change_to_event/1)
     puts = extract_puts(changes, [])
     delete_keys = extract_delete_keys(changes, [])

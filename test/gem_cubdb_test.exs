@@ -63,14 +63,14 @@ defmodule Gem.CubDBTest do
 
     event = {:inserted, :person}
     # We register self as a listener for the event
-    Gem.Adapter.EventDispatcher.Registry.subscribe(@dispatcher1_name, gem, event, :HELLO)
+    Gem.Adapter.EventDispatcher.Registry.subscribe(@dispatcher1_name, event, MyGem)
 
     assert {:ok, :NOT_FOUND} = Gem.fetch_entity(gem, {:person, "Alice"})
     alice = %{name: "Alice", age: 22}
     assert :ok = Gem.run(gem, Command.CreatePerson.new(alice))
 
     # We should receive the event
-    assert_receive {^event, {{:person, "Alice"}, ^alice}, :HELLO}
+    assert_receive {MyGem, ^event, {{:person, "Alice"}, ^alice}}
 
     assert {:ok, alice} === Gem.fetch_entity(gem, {:person, "Alice"})
   end

@@ -1,4 +1,7 @@
 defmodule Gem.Command.Fun do
+  @moduledoc """
+  Utility to define a command with a fun.
+  """
   @behaviour Gem.Command
 
   defstruct entity_spec: nil, fun: nil
