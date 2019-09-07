@@ -14,6 +14,7 @@ defmodule Gem.Adapter.Repository.CubDB do
   @todo "handle timeout"
 
   def write_changes(cub, changes) do
+    IO.inspect(changes, label: "changes")
     changes = Enum.map(changes, &set_entity_key/1)
     events = Enum.map(changes, &change_to_event/1)
     puts = extract_puts(changes, [])
@@ -29,9 +30,9 @@ defmodule Gem.Adapter.Repository.CubDB do
 
   # If the entity to persist is already a {key, value} with a {type,
   # id} key, we have nothing to do
-  def set_entity_key({change, {{type, _} = key, entity}})
+  def set_entity_key({change, {{type, _} = _key, _entity}} = data)
       when is_change(change) and is_atom(type),
-      do: {key, entity}
+      do: data
 
   # But if the entity is a struct we fetch the key from the entity
   # module

@@ -2,6 +2,7 @@ defmodule Gem.Command do
   @moduledoc """
   This module describes the behaviour for a Gem command.
   """
+  require Logger
 
   # key_spec must return a data structure for {entity_module, id}
   # tuples. It can be a single tuple, a list of tuples, a map of any
@@ -52,10 +53,9 @@ defmodule Gem.Command do
     Map.fetch!(entities_map, key)
   end
 
-  def run(command, entities_map) do
+  def run(%mod{} = command, entities_map) do
+    Logger.debug("Running command #{mod}")
     fulfilled = fullfill_spec(command, entities_map)
-
-    %mod{} = command
 
     case mod.check(command, fulfilled) do
       :ok ->

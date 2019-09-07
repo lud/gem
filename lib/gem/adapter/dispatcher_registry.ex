@@ -14,6 +14,8 @@ defmodule Gem.Adapter.EventDispatcher.Registry do
   module, but we can override the transform_event function.
   """
 
+  @no_meta :__NO_META__
+
   def child_spec(name) do
     name
     |> start_opts()
@@ -41,18 +43,33 @@ defmodule Gem.Adapter.EventDispatcher.Registry do
     IO.puts("dispatching to #{inspect(topic)}")
 
     Registry.dispatch(registry, topic, fn entries ->
-      for {pid, ^gem} <- entries do
-        send(pid, {gem, topic, data})
+      for {pid, meta} = entry <- entries do
+        msg =
+          case meta do
+            @no_meta -> {gem, topic, data}
+            meta -> {gem, topic, data, meta}
+          end
+
+        send(pid, msg)
       end
     end)
   end
 
-  def subscribe(registry, topic, gem) when is_atom(gem) do
+  def subscribe_once(registry, topic, meta \\ @no_meta) do
+    unsubscribe(registry, topic)
+    subscribe(registry, topic, meta)
+  end
+
+  def subscribe(registry, topic, meta \\ @no_meta) do
     IO.puts("subscribed to #{inspect(topic)}")
 
-    case Registry.register(registry, topic, gem) do
+    case Registry.register(registry, topic, meta) do
       {:ok, _} -> :ok
       error -> error
     end
+  end
+
+  def unsubscribe(registry, topic) do
+    Registry.unregister(registry, topic)
   end
 end

@@ -61,16 +61,18 @@ defmodule Gem.CubDBTest do
     # register is set to false
     assert nil === Process.whereis(MyGem)
 
-    event = {:inserted, :person}
+    event_key = {:inserted, :person}
     # We register self as a listener for the event
-    Gem.Adapter.EventDispatcher.Registry.subscribe(@dispatcher1_name, event, MyGem)
+    Gem.Adapter.EventDispatcher.Registry.subscribe(@dispatcher1_name, event_key)
+    Gem.Adapter.EventDispatcher.Registry.subscribe(@dispatcher1_name, event_key, :added_metadata)
 
     assert {:ok, :NOT_FOUND} = Gem.fetch_entity(gem, {:person, "Alice"})
     alice = %{name: "Alice", age: 22}
     assert :ok = Gem.run(gem, Command.CreatePerson.new(alice))
 
     # We should receive the event
-    assert_receive {MyGem, ^event, {{:person, "Alice"}, ^alice}}
+    assert_receive {MyGem, ^event_key, {{:person, "Alice"}, ^alice}}
+    assert_receive {MyGem, ^event_key, {{:person, "Alice"}, ^alice}, :added_metadata}
 
     assert {:ok, alice} === Gem.fetch_entity(gem, {:person, "Alice"})
   end
