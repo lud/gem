@@ -8,7 +8,11 @@ defmodule Gem.EventDispatcher do
           | {:external, module :: atom, fun :: atom, args :: list}
   @type events :: list(__MODULE__.event())
   @callback transform_event({any(), any()}, context :: any()) :: event | list(event)
-  @callback dispatch(registry :: pid() | atom(), gem :: atom(), {topic :: any(), data :: any()}) ::
+  @callback dispatch(
+              dispatcher :: pid() | atom() | any(),
+              gem :: atom(),
+              {topic :: any(), data :: any()}
+            ) ::
               :ok
-  @callback subscribe(registry :: atom() | pid(), gem :: atom(), topic :: any()) :: :ok
+  @callback subscribe(dispatcher :: pid() | atom() | any(), gem :: atom(), topic :: any()) :: :ok
 end

@@ -5,9 +5,10 @@ defmodule Gem.Command do
   require Logger
 
   # key_spec must return a data structure for {entity_module, id}
-  # tuples. It can be a single tuple, a list of tuples, a map of any
-  # => tuple, or other combinations of lists/maps
+  # tuples. It can be a single tuple, a list of tuples, a map of
+  # %{any=>tuple}, or other combinations of lists/maps
 
+  @callback new(any()) :: %{__struct__: atom()}
   @callback key_spec(command :: map) :: {atom(), any} | %{} | list
   @callback check(command :: map, entities :: {atom(), any} | %{} | list) :: :ok | {:error, any}
   @callback run(command :: map, entities :: {atom(), any} | %{} | list) ::
@@ -68,6 +69,8 @@ defmodule Gem.Command do
     end
   end
 
+  @todo "Provide a helper to check that all entities were found"
+
   # If the command returns :ok, the exectution is fine (first :ok) and
   # the reply will be :ok (second one), no changes nor events.
   defp normalize_run_result(:ok),
@@ -75,13 +78,16 @@ defmodule Gem.Command do
 
   # If the command returns an :ok-tuple, the reply will :ok and the
   # data is the changes and events
-  defp normalize_run_result({:ok, changes_and_events}),
+  defp normalize_run_result({:ok, changes_and_events}) when is_list(changes_and_events),
     do: {:ok, {:ok, changes_and_events}}
 
   # If the command returns an explicit reply, we let it as-is. It is
   # ok to return {:ok, reply, []} for no changes
-  defp normalize_run_result({:ok, reply, changes_and_events}),
+  defp normalize_run_result({:ok, reply, changes_and_events}) when is_list(changes_and_events),
     do: {:ok, {reply, changes_and_events}}
+
+  defp normalize_run_result(resp),
+    do: raise("Bad return from command run: #{inspect(resp)}")
 
   defp normalize_run_result({:error, _} = err),
     do: err

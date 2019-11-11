@@ -36,8 +36,10 @@ defmodule Gem.Adapter.EventDispatcher.Registry do
     ]
   end
 
-  def transform_event(x, _),
-    do: x
+  def transform_event(x, _) do
+    IO.puts("event transform: #{inspect(x)}")
+    x
+  end
 
   def dispatch(registry, gem, {topic, data}) do
     IO.puts("dispatching to #{inspect(topic)}")
@@ -55,6 +57,11 @@ defmodule Gem.Adapter.EventDispatcher.Registry do
     end)
   end
 
+  @todo """
+    subscribe_once should be the name of a function that will only
+    handle one event for the given topic and then automatically
+    unsubscribe. This function should be subscribe_new.
+  """
   def subscribe_once(registry, topic, meta \\ @no_meta) do
     unsubscribe(registry, topic)
     subscribe(registry, topic, meta)

@@ -13,7 +13,8 @@ defmodule Gem.CubDBTest do
     gen_opts = [name: @db1_name]
     {:ok, _} = CubDB.start_link(@db1_dir, db_opts, gen_opts)
 
-    {:ok, _} = Gem.Adapter.EventDispatcher.Registry.start_link(@dispatcher1_name)
+    # {:ok, _} = Gem.Adapter.EventDispatcher.Registry.start_link(@dispatcher1_name)
+    {:ok, _} = Registry.start_link(name: @dispatcher1_name, keys: :duplicate)
     :ok
   end
 
