@@ -216,21 +216,27 @@ Events that are 2-tuples where the first element is either `:insert`,
 will trigger writes in the given repository adapter.
 
 For example, the following `run/2` callback for a command is _pure_
-and use as simple way to write data to the database:
+and returns and event to write data to the database:
 
 ```elixir
 defmodule MyApp.Bank.Deposit do
   use Gem.Command
+  alias MyApp.Data.Account
 
-  defstruct amount: 0
+  defstruct amount: nil, account_id: nil
 
-  def new(amount) where is_integer(amount) and amount > 0,
-    do: %__MODULE__{amount: amount}
+  def new(account_id, amount) when is_integer(amount) and amount > 0,
+    do: %__MODULE__{account_id: account_id, amount: amount}
+
+  def key_spec(%__MODULE__{account_id: account_id}),
+    do: {Account, account_id}
 
   def run(%{amount: amount}, %Account{} = account) do
     account = Map.update!(account, :balance, &(&1 + amount))
     {:ok, update: account}
   end
+end
+
 ```
 
 If you are new to Elixir, you may need to know that `{:ok, update:
@@ -256,3 +262,5 @@ TODO
 TODO
 With `Gem.Command.Fun` you can create a command that will load the
 entities from your entity spec and pass them to the fun.
+
+TODO a note on exceptions : commands are ran in the calling process
