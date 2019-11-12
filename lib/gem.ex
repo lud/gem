@@ -54,6 +54,9 @@ defmodule Gem do
         raise("Invalid name: #{inspect(name)}")
 
       :error ->
+        # @todo name is required because we pass it to the event
+        #    listeners. If it is acceptable to pass nil to the
+        #    listeners then we can allow nameless gems.
         raise """
         Option :name is required. 
           Pass register: false to disable name registration.
@@ -194,7 +197,7 @@ defmodule Gem do
     do: false
 
   defp dispatch_events(events, gem, nil) do
-    Logger.warn("Ignored events: #{inspect(events)}")
+    Logger.warn("Ignored events (no dispatcher set): #{inspect(events)}")
     :ok
   end
 

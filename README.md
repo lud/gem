@@ -2,6 +2,7 @@
 
 **TODO: Add description**
 
+
 ## Installation
 
 If [available in Hex](https://hex.pm/docs/publish), the package can be installed
@@ -14,11 +15,6 @@ def deps do
   ]
 end
 ```
-
-This example will use a single Gem for the application. Any number of
-gems can be set, but you have to be careful then because if they use
-the same repository, they could update entities concurrently and you
-would lose data.
 
 ### Install Gem in your supervision tree
 
@@ -46,23 +42,31 @@ defmodule MyApp.Application do
   end
 ```
 
+This example sets up a single Gem for the application. Any number of
+gems can be set, but you have to be careful then because if they use
+the same repository, they could update entities concurrently and you
+would lose data.
+
 #### Options
 
-- `name` (required), The name for local process registration.
-- `register` (default: `true`), Wether the process should register its
-  name. When using multiple Gems you may want to use pids instead of
-  names.
-- `repository` (required), The repository adapter to load and save
-  the entities managed by Gem. It is a 2-tuple where the first element
-  is a module implementing `Gem.Repository` behaviour, and the
-  second element is the identifier of the repository for the adapter.
-  The identifier can be an atom, a pid, or anything else as it depends
-  on the adapter.
-- `dispatcher` (default: `nil`), The dispatcher adapter to broadcast
-  Gem events. As for `repositiory` it is a 2-tuple with an 
-  implementation of `Gem.EventDispatcher` behaviour and an identifier
-  for the dispatcher: a pid or an atom, or anything else if you use
-  a custom dispatcher.
+Gem requires the following options:
+
+  * `:name` - The name for local process registration.
+  * `:repository` - The repository adapter to load and save
+  the entities managed by Gem. It is a tuple with two elements:
+    1. A module implementing the `Gem.Repository` behaviour,
+    2. The identifier of the repository for the adapter. The identifier can be an atom, a pid, or anything else as it depends on the adapter.
+
+The following options are … optional:
+
+  * `:register` - Wether the process should register its
+  `:name`. When using multiple Gems you may want to use pids instead of
+  names. Defaults to `true`.
+
+  * `:dispatcher` The dispatcher adapter to broadcast
+  Gem events. As for `repositiory` it is a tuple with two elements:
+    1. A module implementing the `Gem.EventDispatcher` behaviour,
+    2. An identifier for the dispatcher: a pid or an atom ; or anything else if you use a custom dispatcher.
 
 When using `Gem.Adapter.EventDispatcher.Registry` as a dispatcher, you
 have to start a standard `Registry` with the given name. You can also
@@ -77,6 +81,7 @@ that duplicate keys must be used.
   keys: :duplicate,
   partitions: System.schedulers_online()}
 ```
+
 
 ## Issuing commands
 
@@ -97,6 +102,7 @@ function.
 The only goal of Gem is to ensure that any commands that require a
 common entity will be ran sequentially, and that data is properly
 persisted between the two commands execution.
+
 
 ### Key specs
 
@@ -138,6 +144,7 @@ Note that it is OK to run a command when an entity is not found if the
 entity is not _required_. For example, commands for a key/value store
 may create the entity on the fly if it does not exist yet.
 
+
 ### Updating data
 
 The `run/2` callback for a command can perform any operations that the
@@ -170,6 +177,7 @@ broadcasted and executes, but still want to return an error from
 If you need to return a reply but no events, just return and empty
 list: `{:ok, reply, []}`.
 
+
 ### Events and persistence
 
 Events returned by a command `run/2` callback is a list that can
@@ -196,6 +204,7 @@ an event cannot be a list.
 
 Note that events returned by `transform_event/2` will not be
 recursively passed to this callback.
+
 
 #### Update events
 
@@ -238,6 +247,7 @@ only a subset of your entity types.
 
 ### Fetching data
 TODO
+
 
 #### Fun commands
 TODO
