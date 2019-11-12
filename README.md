@@ -71,9 +71,8 @@ The following options are … optional:
       else if you use a custom dispatcher.
 
 When using `Gem.Adapter.EventDispatcher.Registry` as a dispatcher, you
-have to start a standard `Registry` with the given name. You can also
-use an existing registry as the following specs are equivalent. Note
-that duplicate keys must be used.
+will have to start the adapter process with the given name. You can
+also use an existing `Registry` as the following specs are equivalent:
 
 ```elixir
 {Gem.Adapter.EventDispatcher.Registry, MyApp.Gem.Dispatcher}
@@ -83,6 +82,8 @@ that duplicate keys must be used.
   keys: :duplicate,
   partitions: System.schedulers_online()}
 ```
+
+Note that duplicate keys must be used.
 
 
 ## Issuing commands
@@ -173,7 +174,7 @@ so it is normal to return `{:ok, {:ok, val}, events}` from your
 
 You may even return `{:ok, {:error, err}, events}` if you want the
 command to be considered as succesful, in wich case the events will be
-broadcasted and executes, but still want to return an error from
+broadcasted and executed, but still want to return an error from
 `Gen.run/2`.
 
 If you need to return a reply but no events, just return and empty
@@ -217,7 +218,7 @@ will trigger writes in the given repository adapter.
 For example, the following `run/2` callback for a command is _pure_
 and use as simple way to write data to the database:
 
-```
+```elixir
 defmodule MyApp.Bank.Deposit do
   use Gem.Command
 
@@ -237,9 +238,9 @@ account}` is syntaxic sugar for `{:ok, [{:update, account}]}` where we
 can see that the single item in the returned events list is a 2-tuple
 with `:update` as its first element.
 
-Repository adapters provided in the Gem distribution will issue
-`{:updated, type}`, `{:deleted, type}` and `{:inserted, type}` events
-after the corresponding changes are written. For example:
+Repository adapters provided in the Gem distribution will issue events
+with `{:updated, type}`, `{:deleted, type}` and `{:inserted, type}`
+topics after the corresponding changes are written. For example:
 `{{:updated, Account}, %Account{balance: 1000}}`.
 
 The type of entity is given in the _topic_ of the event, (i.e.
