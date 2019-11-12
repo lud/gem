@@ -54,19 +54,21 @@ Gem requires the following options:
   * `:name` - The name for local process registration.
   * `:repository` - The repository adapter to load and save
   the entities managed by Gem. It is a tuple with two elements:
-    1. A module implementing the `Gem.Repository` behaviour,
-    2. The identifier of the repository for the adapter. The identifier can be an atom, a pid, or anything else as it depends on the adapter.
+    * A module implementing the `Gem.Repository` behaviour,
+    * The identifier of the repository for the adapter. The identifier
+      can be an atom, a pid, or anything else as it depends on the
+      adapter.
 
 The following options are … optional:
 
-  * `:register` - Wether the process should register its
-  `:name`. When using multiple Gems you may want to use pids instead of
-  names. Defaults to `true`.
-
-  * `:dispatcher` The dispatcher adapter to broadcast
-  Gem events. As for `repositiory` it is a tuple with two elements:
-    1. A module implementing the `Gem.EventDispatcher` behaviour,
-    2. An identifier for the dispatcher: a pid or an atom ; or anything else if you use a custom dispatcher.
+  * `:register` - Wether the process should register its `:name`. When
+    using multiple Gems you may want to use pids instead of names.
+    Defaults to `true`.
+  * `:dispatcher` The dispatcher adapter to broadcast Gem events. As
+    for `repositiory` it is a tuple with two elements:
+    * A module implementing the `Gem.EventDispatcher` behaviour,
+    * An identifier for the dispatcher: a pid or an atom ; or anything
+      else if you use a custom dispatcher.
 
 When using `Gem.Adapter.EventDispatcher.Registry` as a dispatcher, you
 have to start a standard `Registry` with the given name. You can also
@@ -183,14 +185,14 @@ list: `{:ok, reply, []}`.
 Events returned by a command `run/2` callback is a list that can
 contain any values besides a few special cases:
 
-- An event cannot be a list.
-- 2-tuples where the first element is `:update`, `:delete` or
-  `:insert` are special events reserved by Gem.
-- 2-tuples where the first element is itself a tuple with `:updated`,
-  `:deleted` or `:inserted` as its first element are normal events
-  (e.g. `{{:updated, type_of_entity}, entity}`) but repository
-  adapters may issue those events after perfoming writes, you should
-  then respect their data shape.
+  * An event cannot be a list.
+  * 2-tuples where the first element is `:update`, `:delete` or
+    `:insert` are special events reserved by Gem.
+  * 2-tuples where the first element is itself a tuple with
+    `:updated`, `:deleted` or `:inserted` as its first element are
+    normal events (e.g. `{{:updated, type_of_entity}, entity}`) but
+    repository adapters may issue those events after perfoming writes,
+    you should then respect their data shape.
 
 Each event returned by the command is passed to the
 `transform_event/2` callback of the dispatcher module. The standard
