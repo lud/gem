@@ -37,7 +37,7 @@ defmodule MyApp.Application do
       }
       # ...
     ]
-    opts = [strategy: :one_for_one, name: Toxic.Supervisor]
+    opts = [strategy: :one_for_one, name: MyApp.Supervisor]
     Supervisor.start_link(children, opts)
   end
 ```
@@ -121,7 +121,7 @@ So it the `key_spec/1` function returns `{User, 123}`, your `run/2`
 function will be called with `%User{id: 123, …}` as its second
 argument.
 
-Gem fill _fullfill_ the spec by loading those entities from the
+Gem will _fullfill_ the spec by loading those entities from the
 repository.
 
 More complex entities are possible through the use of lists and maps.
@@ -129,10 +129,15 @@ For example, `%{buyer: {User, 123}, seller: {User: 456}}` as a spec
 will have your command called with two Ecto schemas in the same
 _shape_: `%{buyer: %User{id: 123, …}, seller: %User{id: 456, …}}`.
 
-If an entity could not be fetched, the atom `:NOT_FOUND` will be given
-instead of the corresponding entity. Gem will not raise if all
-entities could not be found, and will still call your `run/2`
-callback.
+It is also possible to simply return `nil` from `key_spec/1`, but if 
+no locking is required, it may not be useful to create a command.
+
+TODO add a "Creating entities" section.
+
+
+If an entity could not be found, the atom `:NOT_FOUND` will be given
+instead of the corresponding entity. Gem will not raise if some entity
+could not be found, and will still call your `run/2` callback.
 
 Thus, it is the developer responsibility to ensure that all the
 required entities have been found.
@@ -143,6 +148,8 @@ fullfilled entities) but should not perform any action besides
 validation. It is a good place to fail early if a required entity is
 `:NOT_FOUND`.
 
+TODO example on pattern matching heads for not found in check/2
+
 Note that it is OK to run a command when an entity is not found if the
 entity is not _required_. For example, commands for a key/value store
 may create the entity on the fly if it does not exist yet.
@@ -152,7 +159,8 @@ may create the entity on the fly if it does not exist yet.
 
 The `run/2` callback for a command can perform any operations that the
 developer want. As long as a command is running, no other command will
-run if it has a common entity in its key spec.
+run if it shares a common entity with the running command in its key
+spec.
 
 A command may then return a single `:ok` to free the entities for
 other commands if everything went well, or an `{:error, …}` 2-tuple
@@ -173,7 +181,7 @@ so it is normal to return `{:ok, {:ok, val}, events}` from your
 `run/2` callback.
 
 You may even return `{:ok, {:error, err}, events}` if you want the
-command to be considered as succesful, in wich case the events will be
+command to be considered succesful, in wich case the events will be
 broadcasted and executed, but still want to return an error from
 `Gen.run/2`.
 
@@ -183,37 +191,50 @@ list: `{:ok, reply, []}`.
 
 ### Events and persistence
 
-Events returned by a command `run/2` callback is a list that can
-contain any values besides a few special cases:
+Events returned by a command `run/2` callback is a list of tuples with
+two elements. The first element of the tuple is the _topic_ and the
+second element is the event value. So basically `{:my_event, value}`
+is a valid event.
 
-  * An event cannot be a list.
+There are a few rules to respect about events:
+
+
+  * As said before, an event is a tuple of size 2.
   * 2-tuples where the first element is `:update`, `:delete` or
-    `:insert` are special events reserved by Gem.
-  * 2-tuples where the first element is itself a tuple with
-    `:updated`, `:deleted` or `:inserted` as its first element are
-    normal events (e.g. `{{:updated, type_of_entity}, entity}`) but
-    repository adapters may issue those events after perfoming writes,
-    you should then respect their data shape.
+    `:insert` are special events reserved by Gem. They will not be
+    dispatched as they are used to persist data to the repository.
+    Refer to the the "Update events" section to know more.
+  * 2-tuples where the _topic_ is itself a tuple matching `{:updated,
+    _}`, `{:deleted, _}` or `{:inserted, _}`, for instance
+    `{{:updated, Account}, %Account{}}`, are normal events but
+    repository adapters issue those events after perfoming writes,
+    you should then respect their data shape if you want to mimic
+    those events.
+
+Special events (`:update`, `:delete` or `:insert`) will be handled
+before any other event of the list is handled. Order of events within
+each group (special or normal) is respected.
 
 Each event returned by the command is passed to the
 `transform_event/2` callback of the dispatcher module. The standard
 dispatcher (`Gem.Adapter.EventDispatcher.Registry`) will not perform
 any changes to your events and return them as they are, but you may
-want to provide your own dispatcher to be able to transform events.
+want to provide your own dispatcher to be able to transform events as
+you see fit.
 
-If the `transform_event/2` returns a list, it is a list of new events.
-The results of events thransformation is then flattened, that is why
-an event cannot be a list.
-
-Note that events returned by `transform_event/2` will not be
-recursively passed to this callback.
+If `transform_event/2` returns a list, it is a list of new events. The
+results of this thransformation is also flattened. Note that events
+returned by `transform_event/2` will not be recursively passed to this
+callback. If you need this behaviour, you will have to flatten your
+own list and call `transform_event/2` recursively.
 
 
 #### Update events
 
 Events that are 2-tuples where the first element is either `:insert`,
 `:update` or `:delete` will be swallowed by Gem (not dispatched) and
-will trigger writes in the given repository adapter.
+will trigger writes in the given repository adapter ; before any other
+event is dispatched.
 
 For example, the following `run/2` callback for a command is _pure_
 and returns and event to write data to the database:
@@ -236,7 +257,6 @@ defmodule MyApp.Bank.Deposit do
     {:ok, update: account}
   end
 end
-
 ```
 
 If you are new to Elixir, you may need to know that `{:ok, update:
@@ -246,12 +266,21 @@ with `:update` as its first element.
 
 Repository adapters provided in the Gem distribution will issue events
 with `{:updated, type}`, `{:deleted, type}` and `{:inserted, type}`
-topics after the corresponding changes are written. For example:
+_topics_ after the corresponding changes are written. For instance:
 `{{:updated, Account}, %Account{balance: 1000}}`.
 
 The type of entity is given in the _topic_ of the event, (i.e.
-`{:updated, Account}`) because event listeners may can so listen for
-only a subset of your entity types. 
+`{:updated, Account}`) because event listeners may listen for only a
+subset of your entity types events.
+
+The `nil` event will be silently ignored. You may return events
+conditionnally with this simple form:
+
+```elixir
+events = [{:update, record}, if(some_condition, do: {:another_event, value})]
+```
+
+
 
 
 ### Fetching data

@@ -2,32 +2,26 @@ defmodule Gem.CubDBTest do
   use ExUnit.Case
   doctest Gem
 
-  @db1_dir "test/db/cub1"
-  @db1_name Module.concat(__MODULE__, Repo1)
-  @dispatcher1_name Module.concat(__MODULE__, Dispatcher1)
+  @db_dir "test/db/#{__MODULE__}"
+  @db_name Module.concat(__MODULE__, Repo)
+  @dispatcher_name Module.concat(__MODULE__, Dispatcher)
+  @gem Module.concat(__MODULE__, Gem)
 
   setup_all do
-    File.mkdir_p!(@db1_dir)
+    File.mkdir_p!(@db_dir)
 
     db_opts = [auto_compact: true, auto_file_sync: false]
-    gen_opts = [name: @db1_name]
-    {:ok, _} = CubDB.start_link(@db1_dir, db_opts, gen_opts)
+    gen_opts = [name: @db_name]
 
-    # {:ok, _} = Gem.Adapter.EventDispatcher.Registry.start_link(@dispatcher1_name)
-    {:ok, _} = Registry.start_link(name: @dispatcher1_name, keys: :duplicate)
+    start_supervised(%{
+      id: __MODULE__.DB,
+      start: {CubDB, :start_link, [@db_dir, db_opts, gen_opts]}
+    })
+
+    start_supervised({Gem.Adapter.EventDispatcher.Registry, @dispatcher_name})
+
+    CubHelpers.clear_db(@db_name)
     :ok
-  end
-
-  def clear_db(db) do
-    {:ok, keys} =
-      CubDB.select(db,
-        pipe: [
-          map: fn {k, _} -> k end
-        ]
-      )
-
-    CubDB.delete_multi(db, keys)
-    CubDB.file_sync(db)
   end
 
   defmodule Command.CreatePerson do
@@ -49,32 +43,32 @@ defmodule Gem.CubDBTest do
   end
 
   test "can start a database and create entities" do
-    clear_db(@db1_name)
-
     assert {:ok, gem} =
              Gem.start_link(
-               name: MyGem,
+               name: @gem,
                register: false,
-               repository: {Gem.Adapter.Repository.CubDB, @db1_name},
-               dispatcher: {Gem.Adapter.EventDispatcher.Registry, @dispatcher1_name}
+               repository: {Gem.Adapter.Repository.CubDB, @db_name},
+               dispatcher: {Gem.Adapter.EventDispatcher.Registry, @dispatcher_name}
              )
 
     # register is set to false
-    assert nil === Process.whereis(MyGem)
+    assert nil === Process.whereis(@gem)
 
     event_key = {:inserted, :person}
     # We register self as a listener for the event
-    Gem.Adapter.EventDispatcher.Registry.subscribe(@dispatcher1_name, event_key)
-    Gem.Adapter.EventDispatcher.Registry.subscribe(@dispatcher1_name, event_key, :added_metadata)
+    Gem.Adapter.EventDispatcher.Registry.subscribe(@dispatcher_name, event_key)
+    Gem.Adapter.EventDispatcher.Registry.subscribe(@dispatcher_name, event_key, :added_metadata)
 
     assert {:ok, :NOT_FOUND} = Gem.fetch_entity(gem, {:person, "Alice"})
     alice = %{name: "Alice", age: 22}
     assert :ok = Gem.run(gem, Command.CreatePerson.new(alice))
 
     # We should receive the event
-    assert_receive {MyGem, ^event_key, {{:person, "Alice"}, ^alice}}
-    assert_receive {MyGem, ^event_key, {{:person, "Alice"}, ^alice}, :added_metadata}
+    assert_receive {@gem, ^event_key, {{:person, "Alice"}, ^alice}}
+    assert_receive {@gem, ^event_key, {{:person, "Alice"}, ^alice}, :added_metadata}
 
     assert {:ok, alice} === Gem.fetch_entity(gem, {:person, "Alice"})
   end
+
+  IO.warn("todo test that shows that fetch_entity is out of sync but not fetch_sync")
 end

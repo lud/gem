@@ -1,8 +1,8 @@
 defmodule Gem.Command.Fetch do
   @moduledoc """
   This command allows to fetch entities within the commands queue,
-  whereas Gem.fetch_entity will direclty return the entities from
-  the repository.
+  unlike `Gem.fetch_entity` which will direclty return the entities
+  from the repository.
 
   If concurrent processes are sending commands to the same gem, it is
   possible that pending commands will update the entities after the
@@ -22,11 +22,14 @@ defmodule Gem.Command.Fetch do
   def new(entity_spec),
     do: %__MODULE__{entity_spec: entity_spec}
 
+  @impl Gem.Command
   def key_spec(%__MODULE__{entity_spec: entity_spec}),
     do: entity_spec
 
+  @impl Gem.Command
   def check(_, _), do: :ok
 
+  @impl Gem.Command
   def run(%__MODULE__{}, entities) do
     {:ok, entities, []}
   end

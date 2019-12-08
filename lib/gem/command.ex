@@ -3,23 +3,66 @@ defmodule Gem.Command do
   This module describes the behaviour for a Gem command.
   """
   require Logger
+  use TODO
 
   # key_spec must return a data structure for {entity_module, id}
   # tuples. It can be a single tuple, a list of tuples, a map of
   # %{any=>tuple}, or other combinations of lists/maps
 
-  @callback new(any()) :: %{__struct__: atom()}
-  @callback key_spec(command :: map) :: {atom(), any} | %{} | list
-  @callback check(command :: map, entities :: {atom(), any} | %{} | list) :: :ok | {:error, any}
-  @callback run(command :: map, entities :: {atom(), any} | %{} | list) ::
+  @callback key_spec(command :: struct) :: {atom, any} | %{} | list
+  @callback check(command :: struct, entities :: {atom, any} | %{} | list) ::
+              :ok | {:error, any}
+  @callback run(command :: struct, entities :: {atom, any} | %{} | list) ::
               :ok
               | {:ok, changes_and_events :: list()}
               | {:ok, reply :: any(), changes_and_events :: list(tuple())}
               | {:error, any()}
 
+  @todo """
+    A lock_spec @callback, with a default to call key_spec(), to be
+    able to lock keys without loading them from the database.
+
+    This requires
+      quote do
+        def lock_spec(command) do
+          key_spec(command)
+        end
+        defoverridable lock_spec: 1
+      end
+
+    But then key_spec must exist for this code to compile so it
+    also requires a defaut key_spec:
+
+    quote do
+      def key_spec(_) do
+        raise "The key_spec/1 function must be defined ..."
+      end
+    end
+  """
+
+  @todo """
+    Provide helpers
+    automatically import Command, only: [reply, add_event, update, insert, delete] and then
+    def run(_,_) do
+      reply(my_reply)
+      |> add_event(:update, entity)
+      |> update(entity)
+      |> update_all(entities)
+      |> reply(other_reply_i_changed_my_mind)
+    end
+
+    Events should be a nested list and we'd use flat_map to call transform events
+    so `|> add_event(evt)` could simply append to the list :
+      new_events = [events, evt]
+    But flat_map flattens the result, not the input !
+
+  """
+
   defmacro __using__(_) do
     quote do
       @behaviour unquote(__MODULE__)
+      import unquote(__MODULE__.Helpers),
+        only: [reply: 1, reply: 2, insert: 1, insert: 2, update: 1, update: 2]
 
       def check(_, _) do
         :ok
@@ -50,9 +93,11 @@ defmodule Gem.Command do
     do_fullfill_spec(spec, entities_map)
   end
 
-  defp do_fullfill_spec({type, id} = key, entities_map) do
-    Map.fetch!(entities_map, key)
-  end
+  defp do_fullfill_spec(nil, _entities_map),
+    do: nil
+
+  defp do_fullfill_spec({_type, _id} = key, entities_map),
+    do: Map.fetch!(entities_map, key)
 
   def run(%mod{} = command, entities_map) do
     Logger.debug("Running command #{mod}")
@@ -86,9 +131,9 @@ defmodule Gem.Command do
   defp normalize_run_result({:ok, reply, changes_and_events}) when is_list(changes_and_events),
     do: {:ok, {reply, changes_and_events}}
 
-  defp normalize_run_result(resp),
-    do: raise("Bad return from command run: #{inspect(resp)}")
-
   defp normalize_run_result({:error, _} = err),
     do: err
+
+  defp normalize_run_result(resp),
+    do: raise("Bad return from command run: #{inspect(resp)}")
 end

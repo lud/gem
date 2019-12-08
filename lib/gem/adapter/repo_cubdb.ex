@@ -6,6 +6,7 @@ defmodule Gem.Adapter.Repository.CubDB do
 
   Persistence events are emitted as `{{event :: atom(), type :: atom()}, {k, v}}`
   """
+  use TODO
   @behaviour Gem.Repository
   def load_entities(cub, keys) do
     {:ok, CubDB.get_multi(cub, keys, :NOT_FOUND)}
@@ -64,7 +65,7 @@ defmodule Gem.Adapter.Repository.CubDB do
 
   # If the entity to persist is already a {key, value} with a {type,
   # id} key, we have nothing to do
-  defp entity_to_kv({{type, _} = key, entity} = kv),
+  defp entity_to_kv({{_type, _} = _key, _entity} = kv),
     do: kv
 
   # If we have a struct, we form the {module, primary_key} tuple as

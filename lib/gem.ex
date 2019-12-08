@@ -5,6 +5,7 @@ defmodule Gem do
   """
   alias Gem.Command
   alias Gem.Command.Fetch
+  use TODO
   require Logger
 
   def child_spec(opts) do
@@ -58,7 +59,7 @@ defmodule Gem do
         #    listeners. If it is acceptable to pass nil to the
         #    listeners then we can allow nameless gems.
         raise """
-        Option :name is required. 
+        Option :name is required.
           Pass register: false to disable name registration.
         """
     end
@@ -115,9 +116,11 @@ defmodule Gem do
     end
   end
 
-  @alias :fetch_entity
   def fetch_entities(gem, key_spec),
     do: fetch_entity(gem, key_spec)
+
+  def fetch_sync(gem, key_spec),
+    do: Gem.run(gem, Gem.Command.Fetch.new(key_spec))
 
   def run(gem, command, lock_timeout \\ 5000) do
     entity_keys = Command.list_keys(command)
@@ -145,12 +148,14 @@ defmodule Gem do
   end
 
   @todo "Add option to require all entities found"
+  @todo "Events should be dispatched outside of mutex lock"
 
   defp do_run(%{name: gem, repository: repo, dispatcher: disp}, entity_keys, command) do
     with {:ok, entities_map} <- load_entities(entity_keys, repo),
          {:ok, {reply, changes_and_events}} <- Command.run(command, entities_map),
-         {:ok, events} <- write_changes(changes_and_events, repo),
-         :ok <- dispatch_events(events, gem, disp) do
+         {:ok, write_events, other_events} <- split_events(changes_and_events),
+         {:ok, write_result_events} <- write_changes(write_events, repo),
+         :ok <- dispatch_events(gem, write_result_events ++ other_events, disp) do
       # If everything is fine, just return the command reply
       reply
     else
@@ -177,56 +182,73 @@ defmodule Gem do
   # the list contains events, we will also return them.
   # We will keep the order of the events, but the new events created
   # for each repository operation will first in list.
-  defp write_changes(changes_and_events, {mod, arg}) do
-    {writes_evts, other_evts} =
-      changes_and_events
-      |> Enum.split_with(&is_write_event/1)
-
-    case mod.write_changes(arg, writes_evts) do
-      :ok -> {:ok, other_evts}
-      {:ok, events} when is_list(events) -> {:ok, other_evts ++ events}
-      {:ok, events} -> raise "Events must be a list, got: #{inspect(events)}"
+  defp write_changes(write_events, {mod, arg}) do
+    case mod.write_changes(arg, write_events) do
+      :ok -> {:ok, []}
+      {:ok, events} when is_list(events) -> {:ok, events}
       {:error, _} = err -> err
     end
   end
 
-  defp is_write_event({k, v}) when k in [:update, :delete, :insert],
-    do: true
+  # Splitting events recursively. We check if the event has a "write"
+  # key: :update, :delete or :insert
+  defp split_events(events, acc \\ {[], [], []})
 
-  defp is_write_event(_),
-    do: false
+  defp split_events([{k, _} = event | events], {write, other, bad})
+       when k in [:update, :delete, :insert],
+       do: split_events(events, {[event | write], other, bad})
 
-  defp dispatch_events(events, gem, nil) do
+  defp split_events([{_, _} = event | events], {write, other, bad}),
+    do: split_events(events, {write, [event | other], bad})
+
+  defp split_events([event | events], {write, other, bad}),
+    do: split_events(events, {write, other, [event | bad]})
+
+  # When done with all events we can return ok if there is no bad
+  # event
+  defp split_events([], {write_events, other_events, []}),
+    do: {:ok, :lists.reverse(write_events), :lists.reverse(other_events)}
+
+  # ... or return an error otherwise
+  defp split_events([], {_, _, bad_events}),
+    do: {:error, {:bad_events, :lists.reverse(bad_events)}}
+
+  defp dispatch_events(_gem, events, nil) do
     Logger.warn("Ignored events (no dispatcher set): #{inspect(events)}")
     :ok
   end
 
-  defp dispatch_events(events, gem, {mod, arg} = disp) do
+  defp dispatch_events(gem, events, {mod, arg} = disp) do
     events
     |> Enum.map(&mod.transform_event(&1, arg))
+    # flatten in case the transform callback returns event lists
     |> :lists.flatten()
+    |> IO.inspect(label: "Transformed events")
     |> Enum.each(&send_event(&1, gem, disp))
   end
 
   # ignoring transformed events as nil or :ok as it is mostly the
-  # result of empty transforms, or explicit nil returns, or result
-  # from IO.puts or Logger calls
-  defp send_event(nil, _, _),
-    do: :ok
+  # result of empty transforms, explicit nil returns or result
+  # from IO.puts and Logger calls
+  defp send_event(nil, _, _), do: :ok
+  defp send_event(:ok, _, _), do: :ok
 
-  defp send_event(:ok, _, _),
-    do: :ok
+  @todo ":external is a bad keyword, must use a Gem. prefixed keyword"
+  @todo """
+    no need to use timer.apply_after by default as it happens in the
+    client process.
+  """
 
   defp send_event({:external, module, fun, args}, _gem, _disp),
     do: apply(module, fun, args)
 
-  defp send_event({:run_command, %_mod{} = command}, gem, _disp),
-    do: send_event({:run_command, 0, command}, gem, _disp)
+  defp send_event({:run_command, %_mod{} = command}, gem, disp),
+    do: send_event({:run_command, 0, command}, gem, disp)
 
-  defp send_event({:run_command, timeout, %_mod{} = command}, gem, _disp) do
+  defp send_event({:run_command, timeout, %_mod{} = command}, gem, disp) do
     timer_args = [timeout, Gem, :run, [gem, command]]
 
-    send_event({:external, :timer, :apply_after, timer_args}, gem, _disp)
+    send_event({:external, :timer, :apply_after, timer_args}, gem, disp)
   end
 
   defp send_event(event, gem, {mod, arg}) do

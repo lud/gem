@@ -6,7 +6,7 @@ defmodule Gem.Adapter.EventDispatcher.Registry do
   Each subscriber receive events as `{gem :: atom(), key :: any(), event :: any()}`
   """
   @behaviour Gem.EventDispatcher
-
+  use TODO
   require Logger
 
   @todo """
@@ -45,7 +45,7 @@ defmodule Gem.Adapter.EventDispatcher.Registry do
     IO.puts("dispatching to #{inspect(topic)}")
 
     Registry.dispatch(registry, topic, fn entries ->
-      for {pid, meta} = entry <- entries do
+      for {pid, meta} <- entries do
         msg =
           case meta do
             @no_meta -> {gem, topic, data}
@@ -58,11 +58,10 @@ defmodule Gem.Adapter.EventDispatcher.Registry do
   end
 
   @todo """
-    subscribe_once should be the name of a function that will only
-    handle one event for the given topic and then automatically
-    unsubscribe. This function should be subscribe_new.
+    Instead of unsubscribe then subscribe we must synchronously check
+    if we are subscribed already, and subscribe if not
   """
-  def subscribe_once(registry, topic, meta \\ @no_meta) do
+  def subscribe_new(registry, topic, meta \\ @no_meta) do
     unsubscribe(registry, topic)
     subscribe(registry, topic, meta)
   end
