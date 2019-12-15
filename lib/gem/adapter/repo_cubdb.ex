@@ -15,7 +15,7 @@ defmodule Gem.Adapter.Repository.CubDB do
   @todo "handle timeout"
 
   def write_changes(cub, changes) do
-    IO.inspect(changes, label: "changes")
+    # IO.inspect(changes, label: "changes")
     events = Enum.map(changes, &change_to_event/1)
     puts = extract_puts(changes, [])
     delete_keys = extract_delete_keys(changes, [])

@@ -6,7 +6,6 @@ defmodule Gem do
   alias Gem.Command
   alias Gem.Command.Fetch
   use TODO
-  require Logger
 
   def child_spec(opts) do
     %{
@@ -37,7 +36,6 @@ defmodule Gem do
     # We can explicitely ask for no registration
     mutex_opts =
       if false === Keyword.get(opts, :register) do
-        IO.warn("not registering #{mutex_opts[:name]}")
         Keyword.drop(mutex_opts, [:name])
       else
         mutex_opts
@@ -191,7 +189,8 @@ defmodule Gem do
   end
 
   # Splitting events recursively. We check if the event has a "write"
-  # key: :update, :delete or :insert
+  # key: :update, :delete or :insert, else if it is a 2-tuple.
+  # We discard nil events
   defp split_events(events, acc \\ {[], [], []})
 
   defp split_events([{k, _} = event | events], {write, other, bad})
@@ -200,6 +199,9 @@ defmodule Gem do
 
   defp split_events([{_, _} = event | events], {write, other, bad}),
     do: split_events(events, {write, [event | other], bad})
+
+  defp split_events([nil | events], {write, other, bad}),
+    do: split_events(events, {write, other, bad})
 
   defp split_events([event | events], {write, other, bad}),
     do: split_events(events, {write, other, [event | bad]})
@@ -213,8 +215,7 @@ defmodule Gem do
   defp split_events([], {_, _, bad_events}),
     do: {:error, {:bad_events, :lists.reverse(bad_events)}}
 
-  defp dispatch_events(_gem, events, nil) do
-    Logger.warn("Ignored events (no dispatcher set): #{inspect(events)}")
+  defp dispatch_events(_gem, _events, nil) do
     :ok
   end
 
@@ -223,7 +224,7 @@ defmodule Gem do
     |> Enum.map(&mod.transform_event(&1, arg))
     # flatten in case the transform callback returns event lists
     |> :lists.flatten()
-    |> IO.inspect(label: "Transformed events")
+    # |> IO.inspect(label: "Transformed events")
     |> Enum.each(&send_event(&1, gem, disp))
   end
 

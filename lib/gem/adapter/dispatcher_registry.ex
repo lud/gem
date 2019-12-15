@@ -7,7 +7,6 @@ defmodule Gem.Adapter.EventDispatcher.Registry do
   """
   @behaviour Gem.EventDispatcher
   use TODO
-  require Logger
 
   @todo """
   define __using__ so we copy all the dispatch code into the using
@@ -37,12 +36,12 @@ defmodule Gem.Adapter.EventDispatcher.Registry do
   end
 
   def transform_event(x, _) do
-    IO.puts("event transform: #{inspect(x)}")
+    # IO.puts("event transform: #{inspect(x)}")
     x
   end
 
   def dispatch(registry, gem, {topic, data}) do
-    IO.puts("dispatching to #{inspect(topic)}")
+    # IO.puts("dispatching to #{inspect(topic)}")
 
     Registry.dispatch(registry, topic, fn entries ->
       for {pid, meta} <- entries do
@@ -67,8 +66,6 @@ defmodule Gem.Adapter.EventDispatcher.Registry do
   end
 
   def subscribe(registry, topic, meta \\ @no_meta) do
-    IO.puts("subscribed to #{inspect(topic)}")
-
     case Registry.register(registry, topic, meta) do
       {:ok, _} -> :ok
       error -> error

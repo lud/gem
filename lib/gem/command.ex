@@ -2,7 +2,6 @@ defmodule Gem.Command do
   @moduledoc """
   This module describes the behaviour for a Gem command.
   """
-  require Logger
   use TODO
 
   # key_spec must return a data structure for {entity_module, id}
@@ -38,24 +37,6 @@ defmodule Gem.Command do
         raise "The key_spec/1 function must be defined ..."
       end
     end
-  """
-
-  @todo """
-    Provide helpers
-    automatically import Command, only: [reply, add_event, update, insert, delete] and then
-    def run(_,_) do
-      reply(my_reply)
-      |> add_event(:update, entity)
-      |> update(entity)
-      |> update_all(entities)
-      |> reply(other_reply_i_changed_my_mind)
-    end
-
-    Events should be a nested list and we'd use flat_map to call transform events
-    so `|> add_event(evt)` could simply append to the list :
-      new_events = [events, evt]
-    But flat_map flattens the result, not the input !
-
   """
 
   defmacro __using__(_) do
@@ -100,7 +81,6 @@ defmodule Gem.Command do
     do: Map.fetch!(entities_map, key)
 
   def run(%mod{} = command, entities_map) do
-    Logger.debug("Running command #{mod}")
     fulfilled = fullfill_spec(command, entities_map)
 
     case mod.check(command, fulfilled) do

@@ -23,11 +23,11 @@ defmodule Gem.MixProject do
   defp deps do
     [
       {:mutex, "~> 1.1.2"},
-      {:cubdb, "~> 0.12.0", only: [:test, :dev]},
-      {:dialyxir, "~> 1.0.0-rc.6", only: [:test, :dev], runtime: false},
-      {:todo, "~> 1.3", only: [:test, :dev], runtime: false},
-      {:credo, "~> 1.1.0", only: [:dev, :test], runtime: false},
-      {:ex_doc, "> 0.0.0", only: :dev, runtime: false}
+      {:cubdb, "~> 0.13.0", only: [:test, :dev]},
+      # {:dialyxir, "~> 1.0.0-rc.6", only: [:test, :dev], runtime: false},
+      {:todo, "~> 1.3", only: [:test, :dev], runtime: false}
+      # {:credo, "~> 1.1.0", only: [:dev, :test], runtime: false},
+      # {:ex_doc, "> 0.0.0", only: :dev, runtime: false}
     ]
   end
 

@@ -55,7 +55,9 @@ defmodule Gem.EventsTest do
 
     def run(%{amount: amount}, %Account{} = account) do
       account = Map.update!(account, :balance, &(&1 + amount))
+      # This:
       {:ok, update: account}
+      # is the same as:
       # update(account)
     end
   end
@@ -92,13 +94,14 @@ defmodule Gem.EventsTest do
   setup_all do
     File.mkdir_p!(@db_dir)
 
-    db_opts = [auto_compact: true, auto_file_sync: false]
+    db_opts = [auto_compact: false, auto_file_sync: false]
     gen_opts = [name: @db_name]
 
     start_supervised(%{
       id: __MODULE__.DB,
       start: {CubDB, :start_link, [@db_dir, db_opts, gen_opts]}
     })
+    |> IO.inspect(label: "CubDB started")
 
     start_supervised({Gem.Adapter.EventDispatcher.Registry, @dispatcher_name})
 
@@ -118,6 +121,7 @@ defmodule Gem.EventsTest do
   defp assert_balance_sync(account_id, expected_balance) do
     assert %Account{balance: balance} = Gem.fetch_sync(@gem, {Account, account_id})
     assert balance === expected_balance
+    balance
   end
 
   defp fetch_balance(account_id) do
@@ -137,7 +141,7 @@ defmodule Gem.EventsTest do
   test "The bank account exists", %{account_id: account_id} do
     # The bank account we work with is created during the test suite setup.
     # This test ensure that it exists.
-    assert match?({:ok, %Account{id: account_id}}, Gem.fetch_entity(@gem, {Account, account_id}))
+    assert match?({:ok, %Account{id: ^account_id}}, Gem.fetch_entity(@gem, {Account, account_id}))
   end
 
   test "We can deposit money to an account", %{account_id: account_id} do
@@ -159,38 +163,68 @@ defmodule Gem.EventsTest do
     :ok = update_account(account_id, &Map.put(&1, :max_overdraft, 1000))
 
     # We will listen for changes
-    this = self()
-
-    listener =
-      Task.async(fn ->
-        Gem.Adapter.EventDispatcher.Registry.subscribe(@dispatcher_name, {:updated, Account})
-        Gem.Adapter.EventDispatcher.Registry.subscribe(@dispatcher_name, :balance_below_zero)
-        send(this, :ack_registered)
-
-        account_id =
-          receive do
-            {@gem, {:updated, Account}, %Account{balance: balance, id: id}} ->
-              assert(balance < 0)
-              id
-
-            other ->
-              assert(false == other)
-          after
-            1000 -> assert(false)
-          end
-
-        assert_receive({@gem, :balance_below_zero, ^account_id})
-      end)
-
-    receive do
-      :ack_registered -> :ok
-    end
+    Gem.Adapter.EventDispatcher.Registry.subscribe(@dispatcher_name, {:updated, Account})
+    Gem.Adapter.EventDispatcher.Registry.subscribe(@dispatcher_name, :balance_below_zero)
 
     # Now we can withdraw 500
     assert :ok === Gem.run(@gem, withdraw_com)
-    assert_balance_sync(account_id, 100 - 500)
+    balance = assert_balance_sync(account_id, 100 - 500)
 
-    Task.await(listener)
-    |> IO.inspect()
+    # We will check the received events
+    assert_receive({@gem, {:updated, Account}, %Account{balance: ^balance, id: ^account_id}})
+    assert_receive({@gem, :balance_below_zero, ^account_id})
+  end
+
+  test "Massive concurrency", %{account_id: account_id} do
+    # Here we will issue <iterations> withdrawals in sequence and
+    # several parallel deposits. The total deposit - withdrawal
+    # must be zero. We set the balance to zero before and it should
+    # be zero in the end.
+    # We set the overdraft to zero also but it has no impact as
+    # withdrawals ar retried until they succeed.
+    IO.puts("Resetting account")
+    :ok = update_account(account_id, &Map.put(&1, :max_overdraft, 0))
+    :ok = update_account(account_id, &Map.put(&1, :balance, 0))
+
+    IO.puts("Launching commands")
+    iterations = 10
+    amount = 120
+    withdrawal = exec_command_n(@gem, Command.Withdrawal.new(account_id, amount), iterations)
+
+    deposits =
+      1..amount
+      |> Enum.map(fn _ -> exec_command_n(@gem, Command.Deposit.new(account_id, 1), iterations) end)
+
+    IO.puts("Awaiting commands")
+
+    Task.await(withdrawal, :infinity)
+
+    deposits
+    |> Enum.map(&Task.await(&1, :infinity))
+
+    assert_balance_sync(account_id, 0)
+  end
+
+  defp exec_command_n(gem, command, iterations) do
+    Task.async(fn ->
+      exec_retry_n(gem, command, iterations)
+    end)
+  end
+
+  defp exec_retry_n(_gem, _command, 0),
+    do: :ok
+
+  defp exec_retry_n(gem, %_{} = command, iterations) when iterations > 0 do
+    case Gem.run(gem, command, :infinity) do
+      :ok ->
+        # IO.puts("Command succeeded: #{inspect(command)}")
+        exec_retry_n(gem, command, iterations - 1)
+
+      {:error, _reason} ->
+        # IO.puts("error running command #{inspect(command)}\n  reason: #{inspect(reason)}")
+        # sleep to priorize deposits
+        Process.sleep(50)
+        exec_retry_n(gem, command, iterations)
+    end
   end
 end
