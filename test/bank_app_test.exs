@@ -182,11 +182,12 @@ defmodule Gem.EventsTest do
     # be zero in the end.
     # We set the overdraft to zero also but it has no impact as
     # withdrawals ar retried until they succeed.
-    IO.puts("Resetting account")
+
+    # Resetting account
     :ok = update_account(account_id, &Map.put(&1, :max_overdraft, 0))
     :ok = update_account(account_id, &Map.put(&1, :balance, 0))
 
-    IO.puts("Launching commands")
+    # Launching commands
     iterations = 10
     amount = 120
     withdrawal = exec_command_n(@gem, Command.Withdrawal.new(account_id, amount), iterations)
@@ -195,8 +196,7 @@ defmodule Gem.EventsTest do
       1..amount
       |> Enum.map(fn _ -> exec_command_n(@gem, Command.Deposit.new(account_id, 1), iterations) end)
 
-    IO.puts("Awaiting commands")
-
+    # Awaiting commands
     Task.await(withdrawal, :infinity)
 
     deposits

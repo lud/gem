@@ -69,6 +69,4 @@ defmodule Gem.CubDBTest do
 
     assert {:ok, alice} === Gem.fetch_entity(gem, {:person, "Alice"})
   end
-
-  IO.warn("todo test that shows that fetch_entity is out of sync but not fetch_sync")
 end
