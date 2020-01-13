@@ -8,6 +8,12 @@ defmodule Gem.Adapter.Repository.CubDB do
   """
   use TODO
   @behaviour Gem.Repository
+  import Gem.Repository
+
+  @impl true
+  @spec load_entities(repository :: atom | pid | {atom, any} | {:via, atom, any}, [
+          Gem.Repository.entity_key()
+        ]) :: {:ok, %{optional(Gem.Repository.entity_key()) => any}} | {:error, any}
   def load_entities(cub, keys) do
     {:ok, CubDB.get_multi(cub, keys, :NOT_FOUND)}
   end
@@ -25,20 +31,6 @@ defmodule Gem.Adapter.Repository.CubDB do
       {events, puts, delete_keys}
     end)
   end
-
-  defguard is_change(atom) when atom in [:update, :delete, :insert]
-
-  defp change_to_event({change_name, {{type, _} = k, v}})
-       when change_name in [:update, :delete, :insert],
-       do: {{change_event_name(change_name), type}, {k, v}}
-
-  defp change_to_event({change_name, %mod{} = s})
-       when change_name in [:update, :delete, :insert],
-       do: {{change_event_name(change_name), mod}, s}
-
-  defp change_event_name(:update), do: :updated
-  defp change_event_name(:delete), do: :deleted
-  defp change_event_name(:insert), do: :inserted
 
   defp extract_puts([{:update, entity} | rest], acc),
     do: extract_puts(rest, [entity_to_kv(entity) | acc])

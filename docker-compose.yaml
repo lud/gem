@@ -1,0 +1,14 @@
+version: "3.4"
+
+services:
+
+  db_test:
+    image: postgres:alpine
+    restart: always
+    environment:
+      POSTGRES_USER: gem_test
+      POSTGRES_PASSWORD: gem_test
+    volumes:
+      - ./test/docker/postgres/data:/var/lib/postgresql/data:rw
+    ports:
+      - "54325:5432"

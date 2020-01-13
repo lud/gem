@@ -8,7 +8,10 @@ defmodule Gem.Command do
   # tuples. It can be a single tuple, a list of tuples, a map of
   # %{any=>tuple}, or other combinations of lists/maps
 
-  @callback key_spec(command :: struct) :: {atom, any} | %{} | list
+  @type t_key_spec :: Gem.Repository.entity_key() | %{optional(any) => t_key_spec} | [t_key_spec]
+
+  @callback key_spec(command :: struct) :: t_key_spec
+
   @callback check(command :: struct, entities :: {atom, any} | %{} | list) ::
               :ok | {:error, any}
   @callback run(command :: struct, entities :: {atom, any} | %{} | list) ::

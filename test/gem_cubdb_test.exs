@@ -24,6 +24,8 @@ defmodule Gem.CubDBTest do
     :ok
   end
 
+  # Of course we would not use a command to create an entity, but it is useful
+  # to fully test the repo adapter.
   defmodule Command.CreatePerson do
     use Gem.Command
     defstruct attrs: nil

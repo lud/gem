@@ -149,7 +149,7 @@ defmodule Gem do
   @todo "Events should be dispatched outside of mutex lock"
 
   defp do_run(%{name: gem, repository: repo, dispatcher: disp}, entity_keys, command) do
-    with {:ok, entities_map} <- load_entities(entity_keys, repo),
+    with {:ok, entities_map} when is_map(entities_map) <- load_entities(entity_keys, repo),
          {:ok, {reply, changes_and_events}} <- Command.run(command, entities_map),
          {:ok, write_events, other_events} <- split_events(changes_and_events),
          {:ok, write_result_events} <- write_changes(write_events, repo),
@@ -170,6 +170,9 @@ defmodule Gem do
         |> Map.new()
 
       {:ok, map}
+    else
+      {:error, _} = error -> error
+      other -> raise "Unknown return shape from #{mod}.load_entities/2: #{inspect(other)}"
     end
   end
 

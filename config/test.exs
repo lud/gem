@@ -1,4 +1,11 @@
 use Mix.Config
 
-# Print only warnings and errors during test
-# config :logger, :console, format: "[$level] $message\n"
+config :gem, ecto_repos: [Gem.EctoRepoTest.Repo]
+
+config :gem, Gem.EctoRepoTest.Repo,
+  priv: "priv/test_repo",
+  username: "gem_test",
+  password: "gem_test",
+  database: "gem_test",
+  port: 54325,
+  pool: Ecto.Adapters.SQL.Sandbox
