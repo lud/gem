@@ -13,12 +13,16 @@ defmodule Gem.Adapter.Repository.CubDB do
   @impl true
   @spec load_entities(repository :: atom | pid | {atom, any} | {:via, atom, any}, [
           Gem.Repository.entity_key()
-        ]) :: {:ok, %{optional(Gem.Repository.entity_key()) => any}} | {:error, any}
+        ]) :: {:ok, list} | {:error, any}
   def load_entities(cub, keys) do
-    {:ok, CubDB.get_multi(cub, keys, :NOT_FOUND)}
+    {:ok, CubDB.get_multi(cub, keys, Gem.Repository.not_found_constant())}
   end
 
   @todo "handle timeout"
+
+  @impl true
+  @spec write_changes(repository :: GenServer.server(), [Gem.change_event()]) ::
+          {:ok, [Gem.write_event()]} | {:error, any()}
 
   def write_changes(cub, changes) do
     # IO.inspect(changes, label: "changes")

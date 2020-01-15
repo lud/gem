@@ -174,16 +174,11 @@ command callbacks, and use the update/event system provided by Gem to
 persist changes to your data. Update/events are described below.
 
 A command may return `{:ok, events}` or `{:ok, reply, events}` in
-which case the return value of `Gem.run/2` would be `:ok` or `reply`.
+which case the return value of `Gem.run/2` would be `:ok` or `{:ok, reply}`.
 
-If given, the `reply` value is not wrapped into an `{:ok, …}` tuple,
-so it is normal to return `{:ok, {:ok, val}, events}` from your
-`run/2` callback.
-
-You may even return `{:ok, {:error, err}, events}` if you want the
-command to be considered succesful, in wich case the events will be
-broadcasted and executed, but still want to return an error from
-`Gen.run/2`.
+If your reply is computed dynamically, you may want to return `:"$noreply"` as
+the reply, so it will be ignored and the return value of `Gem.run/2` will be 
+`:ok`.
 
 If you need to return a reply but no events, just return and empty
 list: `{:ok, reply, []}`.

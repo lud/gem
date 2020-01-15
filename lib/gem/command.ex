@@ -45,14 +45,12 @@ defmodule Gem.Command do
   defmacro __using__(_) do
     quote do
       @behaviour unquote(__MODULE__)
-      import unquote(__MODULE__.Helpers),
-        only: [reply: 1, reply: 2, insert: 1, insert: 2, update: 1, update: 2]
 
       def check(_, _) do
         :ok
       end
 
-      defoverridable check: 2
+      defoverridable unquote(__MODULE__)
     end
   end
 
@@ -107,7 +105,7 @@ defmodule Gem.Command do
   # If the command returns an :ok-tuple, the reply will :ok and the
   # data is the changes and events
   defp normalize_run_result({:ok, changes_and_events}) when is_list(changes_and_events),
-    do: {:ok, {:ok, changes_and_events}}
+    do: {:ok, {:"$noreply", changes_and_events}}
 
   # If the command returns an explicit reply, we let it as-is. It is
   # ok to return {:ok, reply, []} for no changes

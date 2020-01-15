@@ -7,6 +7,10 @@ defmodule Gem do
   alias Gem.Command.Fetch
   use TODO
 
+  @type entity_key :: {t :: atom, id :: any}
+  @type event :: {topic :: any, data :: any}
+  @type change_event :: {:update | :insert | :delete, struct | {entity_key, any}}
+  @type write_event :: {{:updated | :inserted | :deleted, atom}, struct | {entity_key, any}}
   def child_spec(opts) do
     %{
       id: Keyword.get(opts, :name, __MODULE__),
@@ -154,8 +158,10 @@ defmodule Gem do
          {:ok, write_events, other_events} <- split_events(changes_and_events),
          {:ok, write_result_events} <- write_changes(write_events, repo),
          :ok <- dispatch_events(gem, write_result_events ++ other_events, disp) do
-      # If everything is fine, just return the command reply
-      reply
+      case reply do
+        :"$noreply" -> :ok
+        other -> {:ok, other}
+      end
     else
       {:error, _} = err -> err
       # Handling Ecto multi errors

@@ -3,13 +3,17 @@ defmodule Gem.Repository do
   This modules defines a behaviour to load and persist entities from
   a repository.
   """
-  @type entity_key :: {t :: atom, id :: any}
 
-  @callback load_entities(repository :: any(), [entity_key]) ::
-              {:ok, %{optional(entity_key) => any}} | {:error, any}
-  @callback write_changes(repository :: any(), Keyword.t()) ::
-              {:ok, Gem.EventDispatcher.events()} | {:error, any()}
+  @callback load_entities(repository :: any(), [Gem.entity_key()]) ::
+              {:ok, list} | {:error, any}
+  @callback write_changes(repository :: any(), [Gem.change_event()]) ::
+              {:ok, [Gem.write_event()]} | {:error, any()}
 
+  defmacro not_found_constant do
+    quote(do: :NOT_FOUND)
+  end
+
+  @spec change_to_event(Gem.change_event()) :: Gem.write_event()
   def change_to_event({change_name, {{type, _} = k, v}})
       when change_name in [:update, :delete, :insert],
       do: {{change_event_name(change_name), type}, {k, v}}

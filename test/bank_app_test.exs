@@ -37,8 +37,7 @@ defmodule Gem.EventsTest do
     def run(_, nil) do
       account_id = generate_id()
       account = Account.new(account_id)
-
-      insert(account) |> reply({:ok, account_id})
+      {:ok, account_id, insert: account}
     end
   end
 
@@ -101,7 +100,6 @@ defmodule Gem.EventsTest do
       id: __MODULE__.DB,
       start: {CubDB, :start_link, [@db_dir, db_opts, gen_opts]}
     })
-    |> IO.inspect(label: "CubDB started")
 
     start_supervised({Gem.Adapter.EventDispatcher.Registry, @dispatcher_name})
 
@@ -119,13 +117,14 @@ defmodule Gem.EventsTest do
   end
 
   defp assert_balance_sync(account_id, expected_balance) do
-    assert %Account{balance: balance} = Gem.fetch_sync(@gem, {Account, account_id})
+    assert {:ok, %Account{balance: balance}} = Gem.fetch_sync(@gem, {Account, account_id})
     assert balance === expected_balance
     balance
   end
 
   defp fetch_balance(account_id) do
-    Gem.fetch_sync(@gem, {Account, account_id}).balance
+    {:ok, %{balance: balance}} = Gem.fetch_sync(@gem, {Account, account_id})
+    balance
   end
 
   defp update_account(account_id, fun) do

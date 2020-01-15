@@ -16,29 +16,28 @@ defmodule Gem.Adapter.Repository.Ecto do
   @spec load_entities(repository :: any(), [Gem.Repository.entity_key()]) ::
           {:ok, %{optional(Gem.Repository.entity_key()) => any}} | {:error, any}
   def load_entities(repo, keys) do
-    IO.inspect(repo, label: "repo")
-    IO.inspect(keys, label: "keys")
-
-    Enum.reduce(keys, {:ok, %{}}, fn
+    Enum.reduce(keys, {:ok, []}, fn
       # Lift errors @optimize with throw ?
       _, {:error, _} = error ->
         error
 
-      {schema, id} = key, {:ok, acc} ->
-        IO.inspect(schema.module_info(:exports), label: "exports")
-        raise "qdd"
-
-        case repo.one(schema, id) do
+      {schema, id}, {:ok, acc} ->
+        case repo.get(schema, id) do
           # @optimize with Map.put_new ?
-          {:ok, entity} -> {:ok, Map.put(acc, key, entity)}
+          %^schema{} = entity -> {:ok, [entity | acc]}
+          nil -> {:ok, [Gem.Repository.not_found_constant() | acc]}
           {:error, _} = error -> error
         end
     end)
+    |> case do
+      {:ok, list} -> {:ok, :lists.reverse(list)}
+      err -> err
+    end
   end
 
   @impl true
-  @spec write_changes(repository :: any(), Keyword.t()) ::
-          {:ok, Gem.EventDispatcher.events()} | {:error, any()}
+  @spec write_changes(repository :: any(), [Gem.change_event()]) ::
+          {:ok, [Gem.write_event()]} | {:error, any()}
   def write_changes(repo, changes) do
     with {:ok, changes} <- check_all_multiable(changes),
          {:ok, multi} <- run_multi_changes(repo, changes) do
@@ -73,8 +72,8 @@ defmodule Gem.Adapter.Repository.Ecto do
     changes
     |> Enum.filter(fn
       {_, %Changeset{}} -> false
-      {:insert, %mod{}} -> false
-      {:delete, %mod{}} -> false
+      {:insert, %_mod{}} -> false
+      {:delete, %_mod{}} -> false
       _ -> true
     end)
     |> case do
